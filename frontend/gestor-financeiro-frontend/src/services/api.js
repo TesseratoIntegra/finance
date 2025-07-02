@@ -24,7 +24,7 @@ export const gastosAPI = {
   create: (data) => api.post('/gastos/', data),
   update: (id, data) => api.put(`/gastos/${id}/`, data),
   delete: (id) => api.delete(`/gastos/${id}/`),
-  markAsPaid: (id) => api.patch(`/gastos/${id}/mark-paid/`),
+  markAsPaid: (id) => api.patch(`/gastos/${id}/mark_paid/`), // CORREÇÃO: underscore em vez de hífen
 };
 
 // Receitas
@@ -43,4 +43,3 @@ export const dashboardAPI = {
 };
 
 export default api;
-

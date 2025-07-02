@@ -57,7 +57,7 @@ const ReceitasTable = ({
                   <td>{formatDate(receita.data)}</td>
                   <td>
                     {receita.tipo === 'Parcelado' 
-                      ? `${receita.parcelaAtual}/${receita.parcelas}` 
+                      ? `${receita.parcela_atual || receita.parcelaAtual || 1}/${receita.parcelas}` 
                       : '-'
                     }
                   </td>
@@ -90,4 +90,3 @@ const ReceitasTable = ({
 };
 
 export default ReceitasTable;
-

@@ -2,8 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Sum
-from datetime import datetime
+from django.db.models import Q, Sum, Case, When, IntegerField
+from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from .models import Gasto
 from .serializers import GastoSerializer, GastoCreateSerializer
@@ -13,7 +13,6 @@ class GastoViewSet(viewsets.ModelViewSet):
     queryset = Gasto.objects.all()
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['categoria', 'tipo', 'status']
-    ordering = ['-data']  # Ordenar por data decrescente
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -49,7 +48,18 @@ class GastoViewSet(viewsets.ModelViewSet):
             except ValueError:
                 pass
         
-        return queryset.order_by('-data')
+        # ORDENAÇÃO: Vencimentos mais próximos primeiro
+        # 1. Pendentes por data crescente (vencimento mais próximo)
+        # 2. Pagos por data decrescente (mais recentes primeiro)
+        return queryset.annotate(
+            prioridade_status=Case(
+                When(status='Pendente', then=1),
+                When(status='Pago', then=2),
+                When(status='Vencido', then=0),  # Vencidos primeiro
+                default=3,
+                output_field=IntegerField()
+            )
+        ).order_by('prioridade_status', 'data', 'id')
     
     @action(detail=True, methods=['patch'])
     def mark_paid(self, request, pk=None):

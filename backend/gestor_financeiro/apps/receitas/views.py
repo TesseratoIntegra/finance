@@ -28,7 +28,8 @@ class ReceitaViewSet(viewsets.ModelViewSet):
                 Q(responsavel__icontains=search)
             )
         
-        return queryset
+        # ORDENAÇÃO: Data mais próxima primeiro (vencimento mais próximo)
+        return queryset.order_by('data', 'id')
     
     @action(detail=False, methods=['get'])
     def summary(self, request):
@@ -69,4 +70,3 @@ class ReceitaViewSet(viewsets.ModelViewSet):
             'responsaveis': responsaveis,
             'tipos': tipos
         })
-

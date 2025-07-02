@@ -13,13 +13,27 @@ const GastoModal = ({
     categoria: 'Moradia',
     valor: '',
     data: '',
-    tipo: 'Fixo',
+    tipo: 'Unico',
     parcelas: ''
   });
 
+  // Categorias alinhadas com o backend
   const categorias = [
-    'Moradia', 'Alimentação', 'Transporte', 'Saúde', 
-    'Educação', 'Lazer', 'Financeiro', 'Outros'
+    { value: 'Alimentacao', label: 'Alimentação' },
+    { value: 'Transporte', label: 'Transporte' },
+    { value: 'Moradia', label: 'Moradia' },
+    { value: 'Saude', label: 'Saúde' },
+    { value: 'Educacao', label: 'Educação' },
+    { value: 'Lazer', label: 'Lazer' },
+    { value: 'Vestuario', label: 'Vestuário' },
+    { value: 'Outros', label: 'Outros' }
+  ];
+
+  // Tipos alinhados com o backend
+  const tipos = [
+    { value: 'Unico', label: 'Único' },
+    { value: 'Recorrente', label: 'Recorrente (todo mês)' },
+    { value: 'Parcelado', label: 'Parcelado' }
   ];
 
   useEffect(() => {
@@ -38,7 +52,7 @@ const GastoModal = ({
         categoria: 'Moradia',
         valor: '',
         data: new Date().toISOString().split('T')[0],
-        tipo: 'Fixo',
+        tipo: 'Unico',
         parcelas: ''
       });
     }
@@ -53,11 +67,13 @@ const GastoModal = ({
     }
 
     const gastoData = {
-      ...formData,
+      descricao: formData.descricao,
+      categoria: formData.categoria,
       valor: parseFloat(formData.valor),
-      parcelas: formData.tipo === 'Parcelado' ? parseInt(formData.parcelas) : 1,
-      parcelaAtual: 1,
-      status: 'Pendente'
+      data: formData.data,
+      tipo: formData.tipo,
+      parcelas: formData.tipo === 'Parcelado' ? parseInt(formData.parcelas) : null,
+      parcela_atual: formData.tipo === 'Parcelado' ? 1 : null
     };
 
     if (editingGasto) {
@@ -107,7 +123,7 @@ const GastoModal = ({
               required
             >
               {categorias.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}
             </select>
           </div>
@@ -120,6 +136,7 @@ const GastoModal = ({
               onChange={(e) => handleChange('valor', e.target.value)}
               placeholder="Ex: 1200"
               step="0.01"
+              min="0.01"
               required
             />
           </div>
@@ -141,9 +158,9 @@ const GastoModal = ({
               onChange={(e) => handleChange('tipo', e.target.value)}
               required
             >
-              <option value="Fixo">Fixo (todo mês)</option>
-              <option value="Variável">Variável</option>
-              <option value="Parcelado">Parcelado</option>
+              {tipos.map(tipo => (
+                <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+              ))}
             </select>
           </div>
 
@@ -172,4 +189,3 @@ const GastoModal = ({
 };
 
 export default GastoModal;
-

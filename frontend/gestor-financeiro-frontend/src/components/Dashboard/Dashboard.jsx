@@ -98,7 +98,6 @@ const Dashboard = () => {
 
   const handleClearData = () => {
     if (window.confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')) {
-      // Implementar limpeza de dados se necessário
       console.log('Limpar dados');
     }
   };
@@ -190,4 +189,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

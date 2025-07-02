@@ -18,6 +18,28 @@ export const useFinancialData = () => {
     status: ''
   });
 
+  // Função para ordenar por data de vencimento
+  const sortByDueDate = (items) => {
+    return items.sort((a, b) => {
+      const dateA = new Date(a.data);
+      const dateB = new Date(b.data);
+      
+      // Para gastos, considerar status
+      if (a.status && b.status) {
+        // Vencidos primeiro
+        if (a.status === 'Vencido' && b.status !== 'Vencido') return -1;
+        if (b.status === 'Vencido' && a.status !== 'Vencido') return 1;
+        
+        // Pendentes antes de pagos
+        if (a.status === 'Pendente' && b.status === 'Pago') return -1;
+        if (b.status === 'Pendente' && a.status === 'Pago') return 1;
+      }
+      
+      // Dentro do mesmo status, ordenar por data crescente (mais próximo primeiro)
+      return dateA - dateB;
+    });
+  };
+
   // Carregar dados iniciais
   const loadData = useCallback(async () => {
     try {
@@ -30,18 +52,49 @@ export const useFinancialData = () => {
         dashboardAPI.getPlanning()
       ]);
 
+      // Extrair dados do formato paginado do Django REST Framework
+      let gastosArray = [];
+      let receitasArray = [];
+
+      // Para gastos - verificar se tem formato paginado
+      if (gastosRes.data && gastosRes.data.results && Array.isArray(gastosRes.data.results)) {
+        gastosArray = gastosRes.data.results;
+      } else if (Array.isArray(gastosRes.data)) {
+        gastosArray = gastosRes.data;
+      } else {
+        gastosArray = [];
+      }
+
+      // Para receitas - verificar se tem formato paginado
+      if (receitasRes.data && receitasRes.data.results && Array.isArray(receitasRes.data.results)) {
+        receitasArray = receitasRes.data.results;
+      } else if (Array.isArray(receitasRes.data)) {
+        receitasArray = receitasRes.data;
+      } else {
+        receitasArray = [];
+      }
+
+      // Aplicar ordenação por data de vencimento
+      gastosArray = sortByDueDate(gastosArray);
+      receitasArray = sortByDueDate(receitasArray);
+
       setData(prev => ({
         ...prev,
-        gastos: gastosRes.data,
-        receitas: receitasRes.data,
-        metrics: metricsRes.data,
-        planning: planningRes.data,
+        gastos: gastosArray,
+        receitas: receitasArray,
+        metrics: metricsRes.data || {},
+        planning: Array.isArray(planningRes.data) ? planningRes.data : [],
         loading: false
       }));
+
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       setData(prev => ({
         ...prev,
+        gastos: [],
+        receitas: [],
+        metrics: {},
+        planning: [],
         error: 'Erro ao carregar dados financeiros',
         loading: false
       }));
@@ -53,9 +106,9 @@ export const useFinancialData = () => {
   }, [loadData]);
 
   // Filtrar gastos
-  const filteredGastos = data.gastos.filter(gasto => {
+  const filteredGastos = (Array.isArray(data.gastos) ? data.gastos : []).filter(gasto => {
     const matchTexto = !filters.texto || 
-      gasto.descricao.toLowerCase().includes(filters.texto.toLowerCase());
+      gasto.descricao?.toLowerCase().includes(filters.texto.toLowerCase());
     const matchCategoria = !filters.categoria || gasto.categoria === filters.categoria;
     const matchTipo = !filters.tipo || gasto.tipo === filters.tipo;
     const matchStatus = !filters.status || gasto.status === filters.status;
@@ -63,28 +116,31 @@ export const useFinancialData = () => {
     return matchTexto && matchCategoria && matchTipo && matchStatus;
   });
 
+  // Aplicar ordenação aos gastos filtrados também
+  const sortedFilteredGastos = sortByDueDate([...filteredGastos]);
+
   // Calcular subtotais dos gastos filtrados
   const gastosSubtotal = {
-    count: filteredGastos.length,
-    total: filteredGastos.reduce((sum, g) => sum + parseFloat(g.valor), 0),
-    pendente: filteredGastos.filter(g => g.status === 'Pendente')
-      .reduce((sum, g) => sum + parseFloat(g.valor), 0),
-    pago: filteredGastos.filter(g => g.status === 'Pago')
-      .reduce((sum, g) => sum + parseFloat(g.valor), 0)
+    count: sortedFilteredGastos.length,
+    total: sortedFilteredGastos.reduce((sum, g) => sum + parseFloat(g.valor || 0), 0),
+    pendente: sortedFilteredGastos.filter(g => g.status === 'Pendente')
+      .reduce((sum, g) => sum + parseFloat(g.valor || 0), 0),
+    pago: sortedFilteredGastos.filter(g => g.status === 'Pago')
+      .reduce((sum, g) => sum + parseFloat(g.valor || 0), 0)
   };
 
   // Calcular subtotal das receitas (mensal)
   const receitasSubtotal = {
-    count: data.receitas.length,
-    totalMensal: data.receitas.reduce((sum, r) => {
+    count: Array.isArray(data.receitas) ? data.receitas.length : 0,
+    totalMensal: (Array.isArray(data.receitas) ? data.receitas : []).reduce((sum, r) => {
       if (r.tipo === 'Parcelado') {
-        return sum + parseFloat(r.valor);
+        return sum + parseFloat(r.valor || 0);
       } else {
         const hoje = new Date();
         const dataReceita = new Date(r.data);
         if (dataReceita.getMonth() === hoje.getMonth() && 
             dataReceita.getFullYear() === hoje.getFullYear()) {
-          return sum + parseFloat(r.valor);
+          return sum + parseFloat(r.valor || 0);
         }
       }
       return sum;
@@ -92,13 +148,13 @@ export const useFinancialData = () => {
   };
 
   // Obter categorias únicas
-  const categories = [...new Set(data.gastos.map(g => g.categoria))];
+  const categories = [...new Set((Array.isArray(data.gastos) ? data.gastos : []).map(g => g.categoria).filter(Boolean))];
 
   // Funções CRUD
   const addGasto = async (gastoData) => {
     try {
       await gastosAPI.create(gastoData);
-      await loadData(); // Recarregar dados
+      await loadData();
       return { success: true };
     } catch (error) {
       console.error('Erro ao adicionar gasto:', error);
@@ -216,10 +272,10 @@ export const useFinancialData = () => {
 
   return {
     // Dados
-    gastos: filteredGastos,
-    receitas: data.receitas,
-    metrics: data.metrics,
-    planning: data.planning,
+    gastos: sortedFilteredGastos,
+    receitas: Array.isArray(data.receitas) ? sortByDueDate([...data.receitas]) : [],
+    metrics: data.metrics || {},
+    planning: Array.isArray(data.planning) ? data.planning : [],
     loading: data.loading,
     error: data.error,
     
@@ -246,4 +302,3 @@ export const useFinancialData = () => {
     refreshData: loadData
   };
 };
-

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Edit, Trash2, DollarSign } from 'lucide-react';
-import { formatCurrency, formatDate, calculateNextDueDate } from '../../utils/formatters';
+import { formatCurrency, formatDate } from '../../utils/formatters';
 import './GastosTable.scss';
 
 const GastosTable = ({ 
@@ -16,6 +16,16 @@ const GastosTable = ({
 
   const getTipoClass = (tipo) => {
     return `tipo-${tipo.toLowerCase()}`;
+  };
+
+  const calculateNextDueDate = (gasto) => {
+    if (gasto.tipo !== 'Parcelado') return '-';
+    
+    const currentDate = new Date(gasto.data);
+    const nextMonth = new Date(currentDate);
+    nextMonth.setMonth(currentDate.getMonth() + 1);
+    
+    return formatDate(nextMonth.toISOString().split('T')[0]);
   };
 
   return (
@@ -68,7 +78,7 @@ const GastosTable = ({
                   </td>
                   <td>
                     {gasto.tipo === 'Parcelado' 
-                      ? `${gasto.parcelaAtual}/${gasto.parcelas}` 
+                      ? `${gasto.parcela_atual || gasto.parcelaAtual || 1}/${gasto.parcelas}` 
                       : '-'
                     }
                   </td>
@@ -79,7 +89,7 @@ const GastosTable = ({
                   </td>
                   <td>
                     {gasto.tipo === 'Parcelado' 
-                      ? calculateNextDueDate(gasto.data, gasto.parcelaAtual)
+                      ? calculateNextDueDate(gasto)
                       : '-'
                     }
                   </td>
@@ -89,7 +99,7 @@ const GastosTable = ({
                         <button
                           className="action-btn action-btn--pay"
                           onClick={() => onMarkAsPaid(gasto.id)}
-                          title="Dar baixa"
+                          title="Marcar como Pago"
                         >
                           <DollarSign size={14} />
                         </button>
@@ -121,4 +131,3 @@ const GastosTable = ({
 };
 
 export default GastosTable;
-

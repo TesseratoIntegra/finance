@@ -24,19 +24,37 @@ def get_metrics(request):
     # Valor em caixa
     caixa = Caixa.get_current_value()
     
-    # Gastos fixos mensais
-    gastos_fixos = Gasto.objects.filter(tipo='Fixo').aggregate(
+    # Gastos fixos mensais - Corrigir para usar 'Recorrente' em vez de 'Fixo'
+    gastos_fixos = Gasto.objects.filter(tipo='Recorrente').aggregate(
         total=Sum('valor')
     )['total'] or Decimal('0')
     
     # Total do endividamento (apenas parcelas pendentes)
+    # CORREÇÃO: Calcular endividamento baseado nas parcelas restantes
     endividamento = Decimal('0')
     gastos_parcelados = Gasto.objects.filter(
         tipo='Parcelado', 
         status='Pendente'
     )
+    
+    # Agrupar por descrição e calcular parcelas restantes
+    from collections import defaultdict
+    grupos_parcelados = defaultdict(list)
+    
     for gasto in gastos_parcelados:
-        endividamento += gasto.valor_total_restante
+        # Usar descrição + categoria como chave única
+        chave = f"{gasto.descricao}_{gasto.categoria}_{gasto.valor}"
+        grupos_parcelados[chave].append(gasto)
+    
+    for chave, gastos_grupo in grupos_parcelados.items():
+        # Pegar o total de parcelas do primeiro gasto do grupo
+        if gastos_grupo:
+            primeiro_gasto = gastos_grupo[0]
+            parcelas_total = primeiro_gasto.parcelas or 1
+            valor_parcela = primeiro_gasto.valor
+            parcelas_pendentes = len(gastos_grupo)
+            
+            endividamento += valor_parcela * parcelas_pendentes
     
     # Total de receitas mensais
     total_receitas = Decimal('0')
@@ -106,8 +124,8 @@ def get_planning(request):
         
         mes_nome = f"{meses_nomes[mes-1]} {ano}"
         
-        # Gastos fixos
-        gastos_fixos = Gasto.objects.filter(tipo='Fixo').aggregate(
+        # Gastos fixos/recorrentes
+        gastos_fixos = Gasto.objects.filter(tipo='Recorrente').aggregate(
             total=Sum('valor')
         )['total'] or Decimal('0')
         
@@ -118,45 +136,34 @@ def get_planning(request):
             status='Pendente'
         )
         
+        # Simplificar cálculo de gastos parcelados
         for gasto in gastos_parc:
-            # Verificar se a parcela cai neste mês
-            data_inicio = gasto.data
-            meses_diferenca = (ano - data_inicio.year) * 12 + (mes - data_inicio.month)
-            
-            if 0 <= meses_diferenca < gasto.parcelas:
+            # Para este exemplo, consideramos que cada parcela pendente 
+            # pode ser distribuída nos próximos meses
+            if gasto.data.month == mes and gasto.data.year == ano:
                 gastos_parcelados += gasto.valor
         
-        # Receitas mensais para este mês
-        receitas_mes = Decimal('0')
-        receitas = Receita.objects.all()
-        
-        for receita in receitas:
+        # Receitas mensais
+        receitas = Decimal('0')
+        receitas_mes = Receita.objects.all()
+        for receita in receitas_mes:
             if receita.tipo == 'Parcelado':
-                # Verificar se a parcela cai neste mês
-                data_inicio = receita.data
-                meses_diferenca = (ano - data_inicio.year) * 12 + (mes - data_inicio.month)
-                
-                if 0 <= meses_diferenca < receita.parcelas:
-                    receitas_mes += receita.valor
+                receitas += receita.valor
             else:
-                # Para receitas fixas/eventuais, verifica se é do mês específico
-                if (receita.data.month == mes and 
-                    receita.data.year == ano):
-                    receitas_mes += receita.valor
+                if (receita.data.month == mes and receita.data.year == ano):
+                    receitas += receita.valor
         
-        total_gastos = gastos_fixos + gastos_parcelados
-        saldo = receitas_mes - total_gastos
+        saldo = receitas - gastos_fixos - gastos_parcelados
         
         planning.append({
             'mes': mes_nome,
             'gastos_fixos': gastos_fixos,
             'gastos_parcelados': gastos_parcelados,
-            'receitas': receitas_mes,
+            'receitas': receitas,
             'saldo': saldo
         })
     
-    serializer = PlanningMonthSerializer(planning, many=True)
-    return Response(serializer.data)
+    return Response(planning)
 
 
 @api_view(['POST'])
@@ -166,13 +173,20 @@ def update_caixa(request):
     
     if serializer.is_valid():
         novo_valor = serializer.validated_data['value']
-        caixa = Caixa.update_value(novo_valor)
+        
+        # Atualizar ou criar registro de caixa
+        caixa, created = Caixa.objects.get_or_create(
+            defaults={'valor': novo_valor}
+        )
+        
+        if not created:
+            caixa.valor = novo_valor
+            caixa.save()
         
         return Response({
+            'message': 'Valor em caixa atualizado com sucesso',
             'valor': caixa.valor,
-            'data_atualizacao': caixa.data_atualizacao,
-            'message': 'Valor em caixa atualizado com sucesso'
+            'data_atualizacao': caixa.data_atualizacao
         })
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
