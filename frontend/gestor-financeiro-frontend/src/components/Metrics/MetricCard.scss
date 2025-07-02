@@ -1,0 +1,80 @@
+.metric-card {
+  background: white;
+  border-radius: var(--border-radius);
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--box-shadow);
+  border-left: 4px solid;
+  transition: var(--transition);
+  cursor: pointer;
+  
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  &--caixa {
+    border-left-color: var(--warning-color);
+  }
+  
+  &--fixos {
+    border-left-color: var(--danger-color);
+  }
+  
+  &--endividamento {
+    border-left-color: #fd7e14;
+  }
+  
+  &--receitas {
+    border-left-color: var(--success-color);
+  }
+  
+  &--pago {
+    border-left-color: #20c997;
+  }
+  
+  &--nao-pago {
+    border-left-color: #e83e8c;
+  }
+  
+  &--atrasados {
+    border-left-color: #6f42c1;
+  }
+  
+  &__icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+  
+  &__value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--dark-color);
+    margin-bottom: 5px;
+    
+    @media (max-width: 768px) {
+      font-size: 1.5rem;
+    }
+  }
+  
+  &__label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 3px;
+    
+    @media (max-width: 768px) {
+      font-size: 0.9rem;
+    }
+  }
+  
+  &__subtitle {
+    font-size: 0.85rem;
+    color: #6c757d;
+    
+    @media (max-width: 768px) {
+      font-size: 0.8rem;
+    }
+  }
+}
+

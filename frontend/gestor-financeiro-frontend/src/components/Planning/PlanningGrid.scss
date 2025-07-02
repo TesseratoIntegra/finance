@@ -1,0 +1,29 @@
+.planning-section {
+  padding: 20px;
+  background: var(--light-color);
+  
+  &__title {
+    color: var(--dark-color);
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    
+    @media (max-width: 768px) {
+      font-size: 1.3rem;
+      margin-bottom: 15px;
+    }
+  }
+}
+
+.planning-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+}
+

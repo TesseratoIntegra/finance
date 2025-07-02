@@ -1,0 +1,172 @@
+.table-section {
+  margin: 20px;
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  overflow: hidden;
+  
+  &__header {
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  &__title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--dark-color);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  &__subtitle {
+    background: #e3f2fd;
+    border: 1px solid #2196f3;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 0.9rem;
+    color: #1976d2;
+  }
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.gastos-table {
+  width: 100%;
+  border-collapse: collapse;
+  
+  th, td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.9rem;
+    
+    @media (max-width: 768px) {
+      padding: 8px 4px;
+      font-size: 0.8rem;
+    }
+  }
+  
+  th {
+    background: var(--light-color);
+    font-weight: 600;
+    color: #495057;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  
+  tr {
+    transition: var(--transition);
+    
+    &:hover {
+      background: #f8f9fa;
+    }
+    
+    &.pendente {
+      background: #fff3cd;
+      
+      &:hover {
+        background: #ffeaa7;
+      }
+    }
+    
+    &.pago {
+      background: #d1edff;
+      
+      &:hover {
+        background: #b3d9ff;
+      }
+    }
+  }
+}
+
+.table-currency {
+  font-weight: 600;
+  color: var(--dark-color);
+}
+
+.table-empty {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 40px !important;
+}
+
+.tipo-badge, .status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.tipo-badge {
+  &.tipo-fixo {
+    background: var(--danger-color);
+    color: white;
+  }
+  
+  &.tipo-variável {
+    background: var(--warning-color);
+    color: #212529;
+  }
+  
+  &.tipo-parcelado {
+    background: var(--info-color);
+    color: white;
+  }
+}
+
+.status-badge {
+  &.status-pendente {
+    background: #ffeaa7;
+    color: #2d3436;
+  }
+  
+  &.status-pago {
+    background: #00b894;
+    color: white;
+  }
+}
+
+.table-actions {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.action-btn {
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  
+  &--pay {
+    background: var(--success-color);
+    color: white;
+  }
+  
+  &--edit {
+    background: var(--info-color);
+    color: white;
+  }
+  
+  &--delete {
+    background: var(--danger-color);
+    color: white;
+  }
+}
+

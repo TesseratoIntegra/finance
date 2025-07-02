@@ -1,0 +1,60 @@
+.month-card {
+  background: white;
+  border-radius: var(--border-radius);
+  padding: 20px;
+  box-shadow: var(--box-shadow);
+  border-top: 4px solid var(--info-color);
+  transition: var(--transition);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  }
+  
+  &__title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--dark-color);
+    margin-bottom: 15px;
+    text-align: center;
+    
+    @media (max-width: 768px) {
+      font-size: 1.1rem;
+    }
+  }
+  
+  &__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.95rem;
+    
+    &:last-child {
+      border-bottom: none;
+    }
+    
+    &--saldo {
+      font-weight: bold;
+      margin-top: 10px;
+      padding-top: 15px;
+      border-top: 2px solid #e9ecef;
+      border-bottom: none;
+      
+      &.positive {
+        color: var(--success-color);
+      }
+      
+      &.negative {
+        color: var(--danger-color);
+      }
+    }
+    
+    @media (max-width: 768px) {
+      font-size: 0.9rem;
+      padding: 6px 0;
+    }
+  }
+}
+

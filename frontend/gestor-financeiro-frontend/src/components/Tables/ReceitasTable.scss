@@ -1,0 +1,29 @@
+@import '../Tables/GastosTable.scss';
+
+.receitas-table {
+  @extend .gastos-table;
+}
+
+.responsavel-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  
+  &.responsavel-pessoa-1 {
+    background: #e3f2fd;
+    color: #1976d2;
+  }
+  
+  &.responsavel-pessoa-2 {
+    background: #f3e5f5;
+    color: #7b1fa2;
+  }
+  
+  &.responsavel-ambos {
+    background: #e8f5e8;
+    color: #2e7d32;
+  }
+}
+
