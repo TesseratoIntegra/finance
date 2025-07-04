@@ -21,14 +21,20 @@ class Caixa(models.Model):
     @classmethod
     def get_current_value(cls):
         """Retorna o valor atual do caixa"""
-        caixa, created = cls.objects.get_or_create(id=1)
+        caixa, created = cls.objects.get_or_create(
+            id=1, 
+            defaults={'valor': 0}
+        )
         return caixa.valor
     
     @classmethod
     def update_value(cls, novo_valor):
         """Atualiza o valor do caixa"""
-        caixa, created = cls.objects.get_or_create(id=1)
-        caixa.valor = novo_valor
-        caixa.save()
+        caixa, created = cls.objects.get_or_create(
+            id=1, 
+            defaults={'valor': novo_valor}
+        )
+        if not created:
+            caixa.valor = novo_valor
+            caixa.save()
         return caixa
-

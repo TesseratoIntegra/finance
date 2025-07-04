@@ -4,6 +4,13 @@ import { formatCurrency } from '../../utils/formatters';
 import './MetricsGrid.scss';
 
 const MetricsGrid = ({ metrics }) => {
+  // DEBUG: Verificar dados recebidos
+  console.log('=== DADOS RECEBIDOS NO FRONTEND ===');
+  console.log('metrics:', metrics);
+  console.log('gastos_fixos:', metrics.gastos_fixos);
+  console.log('endividamento:', metrics.endividamento);
+  console.log('=====================================');
+
   const metricsConfig = [
     {
       key: 'caixa',
@@ -13,7 +20,7 @@ const MetricsGrid = ({ metrics }) => {
       type: 'caixa'
     },
     {
-      key: 'gastosFixos',
+      key: 'gastos_fixos',
       icon: '💸',
       label: 'Gastos Fixos Mensais',
       subtitle: 'Comprometimento mensal',
@@ -27,28 +34,28 @@ const MetricsGrid = ({ metrics }) => {
       type: 'endividamento'
     },
     {
-      key: 'totalReceitas',
+      key: 'total_receitas',
       icon: '💰',
       label: 'Receitas do Mês',
       subtitle: 'Entrada mensal',
       type: 'receitas'
     },
     {
-      key: 'pagoMesVigente',
+      key: 'pago_mes_vigente',
       icon: '✅',
       label: 'Pago no Mês Vigente',
       subtitle: 'Pagamentos realizados',
       type: 'pago'
     },
     {
-      key: 'naoPagoMesVigente',
+      key: 'nao_pago_mes_vigente',
       icon: '❌',
       label: 'Não Pago no Mês Vigente',
       subtitle: 'Pendências atuais',
       type: 'nao-pago'
     },
     {
-      key: 'atrasadosMesesAnteriores',
+      key: 'atrasados_meses_anteriores',
       icon: '⏰',
       label: 'Atrasados de Meses Anteriores',
       subtitle: 'Pendências anteriores',
@@ -58,19 +65,23 @@ const MetricsGrid = ({ metrics }) => {
 
   return (
     <div className="metrics-grid">
-      {metricsConfig.map((config) => (
-        <MetricCard
-          key={config.key}
-          icon={config.icon}
-          value={formatCurrency(metrics[config.key] || 0)}
-          label={config.label}
-          subtitle={config.subtitle}
-          type={config.type}
-        />
-      ))}
+      {metricsConfig.map((config) => {
+        const value = metrics[config.key] || 0;
+        console.log(`Card ${config.key}: ${value}`);
+        
+        return (
+          <MetricCard
+            key={config.key}
+            icon={config.icon}
+            value={formatCurrency(value)}
+            label={config.label}
+            subtitle={config.subtitle}
+            type={config.type}
+          />
+        );
+      })}
     </div>
   );
 };
 
 export default MetricsGrid;
-

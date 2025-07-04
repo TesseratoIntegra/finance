@@ -17,17 +17,19 @@ const CaixaModal = ({
   }, [isOpen, currentValue]);
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    const valorNumerico = parseFloat(valor);
-    if (isNaN(valorNumerico) || valorNumerico < 0) {
-      alert('Por favor, informe um valor válido');
-      return;
-    }
+  e.preventDefault();
+  
+  const valorNumerico = parseFloat(valor);
+  console.log('Valor a ser enviado:', valorNumerico); // Debug
+  
+  if (isNaN(valorNumerico) || valorNumerico < 0) {
+    alert('Por favor, informe um valor válido');
+    return;
+  }
 
-    onSubmit(valorNumerico);
-    onClose();
-  };
+  onSubmit(valorNumerico);
+  onClose();
+};
 
   if (!isOpen) return null;
 

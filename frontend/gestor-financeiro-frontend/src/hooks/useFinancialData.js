@@ -78,11 +78,16 @@ export const useFinancialData = () => {
       gastosArray = sortByDueDate(gastosArray);
       receitasArray = sortByDueDate(receitasArray);
 
+      // CORREÇÃO: Usar APENAS os dados vindos da API de métricas
+      console.log('=== DADOS PUROS DA API METRICS ===');
+      console.log('metricsRes.data:', metricsRes.data);
+      console.log('=================================');
+
       setData(prev => ({
         ...prev,
         gastos: gastosArray,
         receitas: receitasArray,
-        metrics: metricsRes.data || {},
+        metrics: metricsRes.data || {}, // USAR APENAS os dados da API
         planning: Array.isArray(planningRes.data) ? planningRes.data : [],
         loading: false
       }));

@@ -10,7 +10,12 @@ class CaixaSerializer(serializers.ModelSerializer):
 
 
 class CaixaUpdateSerializer(serializers.Serializer):
-    value = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0)
+    value = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=True)
+    def validate_value(self, value):
+        """Validação adicional do valor"""
+        if value < 0:
+            raise serializers.ValidationError("Valor não pode ser negativo")
+        return value
 
 
 class MetricsSerializer(serializers.Serializer):
