@@ -29,7 +29,8 @@ class Gasto(models.Model):
     descricao = models.CharField(max_length=200)
     categoria = models.CharField(max_length=50, choices=CATEGORIA_CHOICES)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
-    data = models.DateField()
+    data = models.DateField()  # Data de vencimento/programação
+    data_pagamento = models.DateField(null=True, blank=True, verbose_name='Data do Pagamento')  # NOVO CAMPO
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='Unico')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pendente')
     

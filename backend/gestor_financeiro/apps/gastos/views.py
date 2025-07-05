@@ -1,18 +1,17 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Sum, Case, When, IntegerField
-from datetime import datetime, date
+from django.db.models import Sum, Q, Case, When, IntegerField
+from django.db.models.functions import Lower
 from dateutil.relativedelta import relativedelta
+from datetime import date
+
 from .models import Gasto
 from .serializers import GastoSerializer, GastoCreateSerializer
 
 
 class GastoViewSet(viewsets.ModelViewSet):
     queryset = Gasto.objects.all()
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['categoria', 'tipo', 'status']
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -20,42 +19,45 @@ class GastoViewSet(viewsets.ModelViewSet):
         return GastoSerializer
     
     def get_queryset(self):
-        queryset = Gasto.objects.all()
+        queryset = super().get_queryset()
         
-        # Filtro por texto (busca na descrição)
-        search = self.request.query_params.get('search', None)
+        # Filtros via query params
+        categoria = self.request.query_params.get('categoria')
+        tipo = self.request.query_params.get('tipo')
+        status_filter = self.request.query_params.get('status')
+        search = self.request.query_params.get('search')
+        # NOVO: Filtro por mês
+        mes = self.request.query_params.get('mes')
+        ano = self.request.query_params.get('ano')
+        
+        if categoria:
+            queryset = queryset.filter(categoria=categoria)
+        
+        if tipo:
+            queryset = queryset.filter(tipo=tipo)
+            
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
         if search:
             queryset = queryset.filter(
                 Q(descricao__icontains=search) |
                 Q(categoria__icontains=search)
             )
         
-        # Filtro por período
-        data_inicio = self.request.query_params.get('data_inicio', None)
-        data_fim = self.request.query_params.get('data_fim', None)
+        # NOVO: Filtro por mês e ano
+        if mes:
+            queryset = queryset.filter(data__month=mes)
         
-        if data_inicio:
-            try:
-                data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
-                queryset = queryset.filter(data__gte=data_inicio)
-            except ValueError:
-                pass
+        if ano:
+            queryset = queryset.filter(data__year=ano)
         
-        if data_fim:
-            try:
-                data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
-                queryset = queryset.filter(data__lte=data_fim)
-            except ValueError:
-                pass
-        
-        # ORDENAÇÃO: Vencimentos mais próximos primeiro
-        # 1. Pendentes por data crescente (vencimento mais próximo)
-        # 2. Pagos por data decrescente (mais recentes primeiro)
+        # Ordenação: Vencidos primeiro, depois pendentes por data crescente, pagos por data decrescente
         return queryset.annotate(
             prioridade_status=Case(
                 When(status='Pendente', then=1),
                 When(status='Pago', then=2),
-                When(status='Vencido', then=0),  # Vencidos primeiro
+                When(status='Vencido', then=0),
                 default=3,
                 output_field=IntegerField()
             )
@@ -63,7 +65,7 @@ class GastoViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['patch'])
     def mark_paid(self, request, pk=None):
-        """Marca um gasto como pago"""
+        """Marca um gasto como pago e registra a data do pagamento"""
         gasto = self.get_object()
         
         if gasto.status == 'Pago':
@@ -72,7 +74,9 @@ class GastoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # NOVO: Definir data do pagamento como hoje
         gasto.status = 'Pago'
+        gasto.data_pagamento = date.today()  # Data atual do pagamento
         gasto.save()
         
         # Se for parcelado, criar próxima parcela se necessário
@@ -83,7 +87,6 @@ class GastoViewSet(viewsets.ModelViewSet):
             try:
                 self._create_next_installment(gasto)
             except Exception as e:
-                # Log do erro, mas não falhar a operação
                 print(f"Erro ao criar próxima parcela: {e}")
         
         serializer = self.get_serializer(gasto)
@@ -94,7 +97,7 @@ class GastoViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['patch'])
     def mark_pending(self, request, pk=None):
-        """Marca um gasto como pendente"""
+        """Marca um gasto como pendente e remove a data do pagamento"""
         gasto = self.get_object()
         
         if gasto.status == 'Pendente':
@@ -104,6 +107,7 @@ class GastoViewSet(viewsets.ModelViewSet):
             )
         
         gasto.status = 'Pendente'
+        gasto.data_pagamento = None  # Remove a data do pagamento
         gasto.save()
         
         serializer = self.get_serializer(gasto)
@@ -114,7 +118,6 @@ class GastoViewSet(viewsets.ModelViewSet):
     
     def _create_next_installment(self, gasto_pago):
         """Cria a próxima parcela de um gasto parcelado"""
-        # Verificar se já existe a próxima parcela
         proxima_parcela = gasto_pago.parcela_atual + 1
         
         # Verificar se já existe essa parcela
@@ -128,7 +131,7 @@ class GastoViewSet(viewsets.ModelViewSet):
         ).exists()
         
         if existing_parcela:
-            return  # Não criar duplicata
+            return
         
         # Calcular data da próxima parcela
         data_base = gasto_pago.data
@@ -151,63 +154,21 @@ class GastoViewSet(viewsets.ModelViewSet):
         """Retorna resumo dos gastos"""
         gastos = self.get_queryset()
         
-        # Usar agregação para melhor performance
         totals = gastos.aggregate(
             total_gastos=Sum('valor'),
             total_pendente=Sum('valor', filter=Q(status='Pendente')),
             total_pago=Sum('valor', filter=Q(status='Pago'))
         )
         
-        # Gastos por categoria usando agregação
-        categorias = (gastos.values('categoria')
-                     .annotate(total=Sum('valor'))
-                     .order_by('-total'))
-        
-        # Gastos por status
-        status_count = (gastos.values('status')
-                       .annotate(count=Sum('valor'))
-                       .order_by('status'))
+        # Gastos por categoria
+        categorias = gastos.values('categoria').annotate(
+            total=Sum('valor'),
+            pendente=Sum('valor', filter=Q(status='Pendente')),
+            pago=Sum('valor', filter=Q(status='Pago'))
+        ).order_by('-total')
         
         return Response({
-            'total_gastos': totals['total_gastos'] or 0,
-            'total_pendente': totals['total_pendente'] or 0,
-            'total_pago': totals['total_pago'] or 0,
-            'count': gastos.count(),
-            'categorias': {cat['categoria']: float(cat['total']) for cat in categorias},
-            'status_summary': {s['status']: float(s['count']) for s in status_count}
-        })
-    
-    @action(detail=False, methods=['get'])
-    def monthly_summary(self, request):
-        """Retorna resumo mensal dos gastos"""
-        from django.db.models import Extract
-        
-        gastos = self.get_queryset()
-        
-        monthly_data = (gastos
-                       .annotate(
-                           mes=Extract('data', 'month'),
-                           ano=Extract('data', 'year')
-                       )
-                       .values('ano', 'mes')
-                       .annotate(
-                           total=Sum('valor'),
-                           count=Q(id__count=True)
-                       )
-                       .order_by('-ano', '-mes'))
-        
-        return Response({
-            'monthly_summary': list(monthly_data)
-        })
-    
-    @action(detail=False, methods=['get'])
-    def categories(self, request):
-        """Retorna lista de categorias únicas"""
-        categorias = (Gasto.objects
-                     .values_list('categoria', flat=True)
-                     .distinct()
-                     .order_by('categoria'))
-        
-        return Response({
-            'categories': list(categorias)
+            'totals': totals,
+            'categorias': categorias,
+            'count': gastos.count()
         })

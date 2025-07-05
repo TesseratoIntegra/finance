@@ -4,11 +4,16 @@ import { formatCurrency } from '../../utils/formatters';
 import './MetricsGrid.scss';
 
 const MetricsGrid = ({ metrics }) => {
-  // DEBUG: Verificar dados recebidos
+  // Verificar se metrics existe
+  if (!metrics) {
+    return <div>Carregando métricas...</div>;
+  }
+
   console.log('=== DADOS RECEBIDOS NO FRONTEND ===');
   console.log('metrics:', metrics);
-  console.log('gastos_fixos:', metrics.gastos_fixos);
+  console.log('total_receitas:', metrics.total_receitas);
   console.log('endividamento:', metrics.endividamento);
+  console.log('gastos_fixos:', metrics.gastos_fixos);
   console.log('=====================================');
 
   const metricsConfig = [
@@ -18,6 +23,13 @@ const MetricsGrid = ({ metrics }) => {
       label: 'Valor em Caixa',
       subtitle: 'Disponível agora',
       type: 'caixa'
+    },
+    {
+      key: 'total_receitas',
+      icon: '💰',
+      label: 'Receitas do Mês',
+      subtitle: 'Entrada mensal',
+      type: 'receitas'
     },
     {
       key: 'gastos_fixos',
@@ -32,13 +44,6 @@ const MetricsGrid = ({ metrics }) => {
       label: 'Total do Endividamento',
       subtitle: 'Parcelas a quitar',
       type: 'endividamento'
-    },
-    {
-      key: 'total_receitas',
-      icon: '💰',
-      label: 'Receitas do Mês',
-      subtitle: 'Entrada mensal',
-      type: 'receitas'
     },
     {
       key: 'pago_mes_vigente',
@@ -67,7 +72,7 @@ const MetricsGrid = ({ metrics }) => {
     <div className="metrics-grid">
       {metricsConfig.map((config) => {
         const value = metrics[config.key] || 0;
-        console.log(`Card ${config.key}: ${value}`);
+        console.log(`Renderizando Card ${config.key}: ${value}`);
         
         return (
           <MetricCard

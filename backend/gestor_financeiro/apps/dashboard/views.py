@@ -16,77 +16,64 @@ from ..receitas.models import Receita
 
 @api_view(['GET'])
 def get_metrics(request):
-    print("🔥🔥🔥 EXECUTANDO A VIEW CORRETA! 🔥🔥🔥")
-    print("🔥🔥🔥 SE VOCÊ VÊ ISSO, A VIEW ESTÁ FUNCIONANDO! 🔥🔥🔥")
-    
     """Retorna as métricas principais do dashboard"""
     hoje = date.today()
     mes_atual = hoje.month
     ano_atual = hoje.year
     
-    # Valor em caixa
+    # Valor em caixa (mantém como está)
     caixa = Caixa.get_current_value()
     
-    # 1. GASTOS FIXOS = APENAS GASTOS RECORRENTES (não importa status)
-    gastos_fixos = Gasto.objects.filter(tipo='Recorrente').aggregate(
-        total=Sum('valor')
-    )['total'] or Decimal('0')
-    
-    print(f"✅ Gastos Fixos (Recorrentes): R$ {gastos_fixos}")
-    
-    # 2. ENDIVIDAMENTO = APENAS GASTOS PARCELADOS PENDENTES
-    endividamento = Gasto.objects.filter(
-        tipo='Parcelado', 
-        status='Pendente'
+    # 1. GASTOS FIXOS MENSAIS = Apenas gastos recorrentes
+    gastos_fixos = Gasto.objects.filter(
+        tipo='Recorrente'
     ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
     
-    print(f"✅ Endividamento (Parcelados Pendentes): R$ {endividamento}")
+    # 2. ENDIVIDAMENTO = Apenas gastos parcelados (independente do status)
+    endividamento = Gasto.objects.filter(
+        tipo='Parcelado'
+    ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
     
-    # 3. TOTAL DE RECEITAS (receitas do mês atual + parceladas)
-    total_receitas = Decimal('0')
-    
-    # Receitas fixas/eventuais do mês atual
-    receitas_mes_atual = Receita.objects.filter(
+    # 3. TOTAL RECEITAS = Todas as receitas (fixas + eventuais + parceladas) do mês atual
+    receitas_mes = Receita.objects.filter(
+        Q(tipo='Fixa') | Q(tipo='Eventual'),
         data__month=mes_atual,
         data__year=ano_atual
-    ).exclude(tipo='Parcelado').aggregate(
-        total=Sum('valor')
-    )['total'] or Decimal('0')
+    ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
     
-    # Receitas parceladas (considera apenas o valor mensal)
     receitas_parceladas = Receita.objects.filter(
         tipo='Parcelado'
     ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
     
-    total_receitas = receitas_mes_atual + receitas_parceladas
+    total_receitas = receitas_mes + receitas_parceladas
     
-    print(f"✅ Total Receitas: R$ {total_receitas}")
-    
-    # 4. PAGO NO MÊS VIGENTE (todos os gastos pagos no mês atual)
+    # 4. PAGO NO MÊS VIGENTE = MODIFICADO: Usar data_pagamento em vez de data
     pago_mes_vigente = Gasto.objects.filter(
         status='Pago',
-        data__month=mes_atual,
-        data__year=ano_atual
+        data_pagamento__month=mes_atual,  # MUDANÇA AQUI: usar data_pagamento
+        data_pagamento__year=ano_atual
     ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
     
-    print(f"✅ Pago no Mês: R$ {pago_mes_vigente}")
-    
-    # 5. NÃO PAGO NO MÊS VIGENTE (gastos pendentes do mês atual)
+    # 5. NÃO PAGO NO MÊS VIGENTE = Gastos pendentes do mês atual
     nao_pago_mes_vigente = Gasto.objects.filter(
         status='Pendente',
         data__month=mes_atual,
         data__year=ano_atual
     ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
     
-    print(f"✅ Não Pago no Mês: R$ {nao_pago_mes_vigente}")
+    # Adiciona gastos fixos (recorrentes) que ainda não foram pagos este mês
+    gastos_fixos_nao_pagos = Gasto.objects.filter(
+        tipo='Recorrente',
+        status='Pendente'
+    ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
     
-    # 6. ATRASADOS DE MESES ANTERIORES
+    nao_pago_mes_vigente += gastos_fixos_nao_pagos
+    
+    # 6. ATRASADOS DE MESES ANTERIORES = Gastos pendentes de meses passados
     atrasados_meses_anteriores = Gasto.objects.filter(
         status='Pendente',
         data__lt=date(ano_atual, mes_atual, 1)
     ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
-    
-    print(f"✅ Atrasados: R$ {atrasados_meses_anteriores}")
     
     # DADOS FINAIS
     metrics_data = {
@@ -99,8 +86,14 @@ def get_metrics(request):
         'atrasados_meses_anteriores': float(atrasados_meses_anteriores)
     }
     
-    print(f"🎯 Dados Finais Enviados: {metrics_data}")
-    print("=" * 50)
+    print(f"🎯 Dados Enviados:")
+    print(f"   Caixa: R$ {caixa}")
+    print(f"   Gastos Fixos: R$ {gastos_fixos}")
+    print(f"   Endividamento: R$ {endividamento}")
+    print(f"   Receitas: R$ {total_receitas}")
+    print(f"   Pago Mês (por data_pagamento): R$ {pago_mes_vigente}")
+    print(f"   Não Pago Mês: R$ {nao_pago_mes_vigente}")
+    print(f"   Atrasados: R$ {atrasados_meses_anteriores}")
     
     return Response(metrics_data)
 
@@ -152,7 +145,7 @@ def get_planning(request):
         receitas_total = receitas_mes + receitas_parceladas
         
         # Saldo projetado
-        saldo = receitas_total - gastos_fixos - gastos_parcelados
+        saldo = receitas_total - (gastos_fixos + gastos_parcelados)
         
         planning.append({
             'mes': mes_nome,
@@ -162,32 +155,27 @@ def get_planning(request):
             'saldo': float(saldo)
         })
     
-    return Response(planning)
+    return Response({'planning': planning})
 
 
 @api_view(['POST'])
 def update_caixa(request):
     """Atualiza o valor em caixa"""
     serializer = CaixaUpdateSerializer(data=request.data)
-    
     if serializer.is_valid():
-        novo_valor = serializer.validated_data['value']
-        
-        # Atualizar ou criar registro de caixa
+        value = serializer.validated_data['value']
         caixa, created = Caixa.objects.get_or_create(
             id=1,
-            defaults={'valor': novo_valor}
+            defaults={'valor': value}
         )
-        
         if not created:
-            caixa.valor = novo_valor
+            caixa.valor = value
             caixa.save()
         
         return Response({
+            'success': True,
             'message': 'Valor em caixa atualizado com sucesso',
-            'valor': float(caixa.valor),
-            'data_atualizacao': caixa.data_atualizacao
+            'valor': float(caixa.valor)
         })
     
-    print("Erro de validação:", serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

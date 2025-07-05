@@ -1,0 +1,90 @@
+.month-filter {
+  background: #f8f9fa;
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+
+    label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #495057;
+    }
+  }
+
+  &__select {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    min-width: 140px;
+    background: white;
+    
+    &:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+  }
+
+  &__clear {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    align-self: flex-end;
+
+    &:hover {
+      background: #c82333;
+    }
+  }
+
+  &__active {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #d4edda;
+    color: #155724;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    border-left: 4px solid #28a745;
+  }
+
+  @media (max-width: 768px) {
+    &__controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    &__field {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    &__select {
+      min-width: 0;
+      flex: 1;
+      max-width: 200px;
+    }
+
+    &__clear {
+      align-self: stretch;
+    }
+  }
+}

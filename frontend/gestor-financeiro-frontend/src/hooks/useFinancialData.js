@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { gastosAPI, receitasAPI, dashboardAPI } from '../services/api';
 
-export const useFinancialData = () => {
+const useFinancialData = () => {
   const [data, setData] = useState({
     gastos: [],
     receitas: [],
@@ -15,36 +15,37 @@ export const useFinancialData = () => {
     texto: '',
     categoria: '',
     tipo: '',
-    status: ''
+    status: '',
+    mes: null,     // NOVO: Filtro por mês
+    ano: null      // NOVO: Filtro por ano
   });
 
   // Função para ordenar por data de vencimento
   const sortByDueDate = (items) => {
     return items.sort((a, b) => {
+      // Se um é pendente e outro é pago, pendente vem primeiro
+      if (a.status === 'Pendente' && b.status === 'Pago') return -1;
+      if (a.status === 'Pago' && b.status === 'Pendente') return 1;
+      
+      // Se ambos têm o mesmo status, ordenar por data
       const dateA = new Date(a.data);
       const dateB = new Date(b.data);
       
-      // Para gastos, considerar status
-      if (a.status && b.status) {
-        // Vencidos primeiro
-        if (a.status === 'Vencido' && b.status !== 'Vencido') return -1;
-        if (b.status === 'Vencido' && a.status !== 'Vencido') return 1;
-        
-        // Pendentes antes de pagos
-        if (a.status === 'Pendente' && b.status === 'Pago') return -1;
-        if (b.status === 'Pendente' && a.status === 'Pago') return 1;
+      // Para pendentes: mais antigos primeiro (vencimento próximo)
+      if (a.status === 'Pendente' && b.status === 'Pendente') {
+        return dateA - dateB;
       }
       
-      // Dentro do mesmo status, ordenar por data crescente (mais próximo primeiro)
-      return dateA - dateB;
+      // Para pagos: mais recentes primeiro
+      return dateB - dateA;
     });
   };
 
-  // Carregar dados iniciais
   const loadData = useCallback(async () => {
     try {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
+      // Fazer todas as chamadas em paralelo
       const [gastosRes, receitasRes, metricsRes, planningRes] = await Promise.all([
         gastosAPI.getAll(),
         receitasAPI.getAll(),
@@ -52,11 +53,8 @@ export const useFinancialData = () => {
         dashboardAPI.getPlanning()
       ]);
 
-      // Extrair dados do formato paginado do Django REST Framework
+      // Processar dados de gastos
       let gastosArray = [];
-      let receitasArray = [];
-
-      // Para gastos - verificar se tem formato paginado
       if (gastosRes.data && gastosRes.data.results && Array.isArray(gastosRes.data.results)) {
         gastosArray = gastosRes.data.results;
       } else if (Array.isArray(gastosRes.data)) {
@@ -65,7 +63,8 @@ export const useFinancialData = () => {
         gastosArray = [];
       }
 
-      // Para receitas - verificar se tem formato paginado
+      // Processar dados de receitas
+      let receitasArray = [];
       if (receitasRes.data && receitasRes.data.results && Array.isArray(receitasRes.data.results)) {
         receitasArray = receitasRes.data.results;
       } else if (Array.isArray(receitasRes.data)) {
@@ -78,7 +77,6 @@ export const useFinancialData = () => {
       gastosArray = sortByDueDate(gastosArray);
       receitasArray = sortByDueDate(receitasArray);
 
-      // CORREÇÃO: Usar APENAS os dados vindos da API de métricas
       console.log('=== DADOS PUROS DA API METRICS ===');
       console.log('metricsRes.data:', metricsRes.data);
       console.log('=================================');
@@ -87,7 +85,7 @@ export const useFinancialData = () => {
         ...prev,
         gastos: gastosArray,
         receitas: receitasArray,
-        metrics: metricsRes.data || {}, // USAR APENAS os dados da API
+        metrics: metricsRes.data || {},
         planning: Array.isArray(planningRes.data) ? planningRes.data : [],
         loading: false
       }));
@@ -110,7 +108,49 @@ export const useFinancialData = () => {
     loadData();
   }, [loadData]);
 
-  // Filtrar gastos
+  // NOVO: Função para buscar gastos com filtros de API
+  const loadGastosWithFilters = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      
+      if (filters.categoria) params.append('categoria', filters.categoria);
+      if (filters.tipo) params.append('tipo', filters.tipo);
+      if (filters.status) params.append('status', filters.status);
+      if (filters.texto) params.append('search', filters.texto);
+      if (filters.mes) params.append('mes', filters.mes);
+      if (filters.ano) params.append('ano', filters.ano);
+
+      const url = `/gastos/?${params.toString()}`;
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}${url}`);
+      const data = await response.json();
+      
+      let gastosArray = [];
+      if (data && data.results && Array.isArray(data.results)) {
+        gastosArray = data.results;
+      } else if (Array.isArray(data)) {
+        gastosArray = data;
+      }
+
+      setData(prev => ({
+        ...prev,
+        gastos: sortByDueDate(gastosArray)
+      }));
+
+    } catch (error) {
+      console.error('Erro ao carregar gastos filtrados:', error);
+    }
+  }, [filters]);
+
+  // Recarregar gastos quando filtros mudarem
+  useEffect(() => {
+    if (filters.mes !== null || filters.ano !== null || filters.categoria || filters.tipo || filters.status || filters.texto) {
+      loadGastosWithFilters();
+    } else {
+      loadData(); // Recarregar todos os dados se não há filtros
+    }
+  }, [filters, loadGastosWithFilters, loadData]);
+
+  // Filtrar gastos localmente (para casos onde a API não filtrou)
   const filteredGastos = (Array.isArray(data.gastos) ? data.gastos : []).filter(gasto => {
     const matchTexto = !filters.texto || 
       gasto.descricao?.toLowerCase().includes(filters.texto.toLowerCase());
@@ -118,10 +158,18 @@ export const useFinancialData = () => {
     const matchTipo = !filters.tipo || gasto.tipo === filters.tipo;
     const matchStatus = !filters.status || gasto.status === filters.status;
     
-    return matchTexto && matchCategoria && matchTipo && matchStatus;
+    // Filtro por mês e ano (backup caso a API não tenha filtrado)
+    let matchData = true;
+    if (filters.mes || filters.ano) {
+      const gastoDate = new Date(gasto.data);
+      if (filters.mes && gastoDate.getMonth() + 1 !== filters.mes) matchData = false;
+      if (filters.ano && gastoDate.getFullYear() !== filters.ano) matchData = false;
+    }
+    
+    return matchTexto && matchCategoria && matchTipo && matchStatus && matchData;
   });
 
-  // Aplicar ordenação aos gastos filtrados também
+  // Aplicar ordenação aos gastos filtrados
   const sortedFilteredGastos = sortByDueDate([...filteredGastos]);
 
   // Calcular subtotais dos gastos filtrados
@@ -134,176 +182,33 @@ export const useFinancialData = () => {
       .reduce((sum, g) => sum + parseFloat(g.valor || 0), 0)
   };
 
-  // Calcular subtotal das receitas (mensal)
+  // Calcular subtotal das receitas
   const receitasSubtotal = {
     count: Array.isArray(data.receitas) ? data.receitas.length : 0,
-    totalMensal: (Array.isArray(data.receitas) ? data.receitas : []).reduce((sum, r) => {
-      if (r.tipo === 'Parcelado') {
-        return sum + parseFloat(r.valor || 0);
-      } else {
-        const hoje = new Date();
-        const dataReceita = new Date(r.data);
-        if (dataReceita.getMonth() === hoje.getMonth() && 
-            dataReceita.getFullYear() === hoje.getFullYear()) {
-          return sum + parseFloat(r.valor || 0);
-        }
-      }
-      return sum;
-    }, 0)
-  };
-
-  // Obter categorias únicas
-  const categories = [...new Set((Array.isArray(data.gastos) ? data.gastos : []).map(g => g.categoria).filter(Boolean))];
-
-  // Funções CRUD
-  const addGasto = async (gastoData) => {
-    try {
-      await gastosAPI.create(gastoData);
-      await loadData();
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao adicionar gasto:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  const updateGasto = async (id, gastoData) => {
-    try {
-      await gastosAPI.update(id, gastoData);
-      await loadData();
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao atualizar gasto:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  const deleteGasto = async (id) => {
-    try {
-      await gastosAPI.delete(id);
-      await loadData();
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao excluir gasto:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  const markGastoAsPaid = async (id) => {
-    try {
-      await gastosAPI.markAsPaid(id);
-      await loadData();
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao marcar gasto como pago:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  const addReceita = async (receitaData) => {
-    try {
-      await receitasAPI.create(receitaData);
-      await loadData();
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao adicionar receita:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  const updateReceita = async (id, receitaData) => {
-    try {
-      await receitasAPI.update(id, receitaData);
-      await loadData();
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao atualizar receita:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  const deleteReceita = async (id) => {
-    try {
-      await receitasAPI.delete(id);
-      await loadData();
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao excluir receita:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  const updateCaixa = async (valor) => {
-    try {
-      await dashboardAPI.updateCaixa(valor);
-      await loadData();
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao atualizar caixa:', error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  // Filtros
-  const updateFilter = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      texto: '',
-      categoria: '',
-      tipo: '',
-      status: ''
-    });
-  };
-
-  const applyQuickFilter = (type) => {
-    clearFilters();
-    switch (type) {
-      case 'pendentes':
-        setFilters(prev => ({ ...prev, status: 'Pendente' }));
-        break;
-      case 'pagos':
-        setFilters(prev => ({ ...prev, status: 'Pago' }));
-        break;
-      case 'vencendo':
-        // Implementar lógica de vencimento se necessário
-        break;
-      default:
-        break;
-    }
+    totalMensal: (Array.isArray(data.receitas) ? data.receitas : [])
+      .reduce((sum, r) => sum + parseFloat(r.valor_mensal || r.valor || 0), 0)
   };
 
   return {
-    // Dados
-    gastos: sortedFilteredGastos,
-    receitas: Array.isArray(data.receitas) ? sortByDueDate([...data.receitas]) : [],
-    metrics: data.metrics || {},
-    planning: Array.isArray(data.planning) ? data.planning : [],
-    loading: data.loading,
-    error: data.error,
-    
-    // Subtotais
-    gastosSubtotal,
-    receitasSubtotal,
-    
-    // Filtros
+    data: {
+      ...data,
+      gastos: sortedFilteredGastos,
+      gastosSubtotal,
+      receitasSubtotal
+    },
     filters,
-    categories,
-    updateFilter,
-    clearFilters,
-    applyQuickFilter,
-    
-    // Ações
-    addGasto,
-    updateGasto,
-    deleteGasto,
-    markGastoAsPaid,
-    addReceita,
-    updateReceita,
-    deleteReceita,
-    updateCaixa,
-    refreshData: loadData
+    setFilters,
+    loadData,
+    markGastoAsPaid: async (id) => {
+      try {
+        await gastosAPI.markAsPaid(id);
+        await loadData(); // Recarregar dados após marcar como pago
+      } catch (error) {
+        console.error('Erro ao marcar gasto como pago:', error);
+        throw error;
+      }
+    }
   };
 };
+
+export default useFinancialData;

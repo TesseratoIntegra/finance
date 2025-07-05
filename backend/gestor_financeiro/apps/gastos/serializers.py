@@ -8,11 +8,11 @@ class GastoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Gasto
         fields = [
-            'id', 'descricao', 'categoria', 'valor', 'data', 
+            'id', 'descricao', 'categoria', 'valor', 'data', 'data_pagamento',
             'tipo', 'status', 'parcelas', 'parcela_atual',
             'is_vencido', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'data_pagamento']
 
 class GastoCreateSerializer(serializers.ModelSerializer):
     class Meta:
